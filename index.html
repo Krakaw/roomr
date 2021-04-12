@@ -33,19 +33,21 @@
         <input id="name" type="text" value="Test" placeholder="Name">
         <button type="submit">Add</button>
     </form>
-    <button onclick="exportRects()">Export</button>
     <button onclick="importRects()">Import</button>
 </div>
 <div style="display: flex">
 
     <canvas id="canvas" width="1000" height="1000"></canvas>
+    
     <textarea id="export"></textarea>
+    
 </div>
 <script>
     let dragok = false;
     const settings = {
         scale: 1500, //meters
         rects: [],
+        gridMultiplier: 10,
         ...JSON.parse(localStorage.getItem('settings') || '{}')
     }
     const rects = settings.rects;
@@ -70,9 +72,10 @@
     }
 
     function importRects() {
-        const {scale, rects: importRects = []} = JSON.parse(document.getElementById('export').value);
+        const {scale, rects: importRects = [], gridMultiplier} = JSON.parse(document.getElementById('export').value);
         settings.rects.splice(0, settings.rects.length, ...importRects);
         settings.scale = scale;
+        settings.gridMultiplier = gridMultiplier;
         updateIds();
         draw();
     }
@@ -178,18 +181,24 @@
         ctx.globalAlpha = 0.5;
         ctx.strokeStyle = '#000000';
         ctx.fillStyle = '#000000';
-        for (let i = 0; i < canvas.height; i += pixelHeightIncrements * 10) {
+        // Rows
+        for (let i = 0; i < canvas.height; i += pixelHeightIncrements * settings.gridMultiplier) {
             ctx.beginPath();
             ctx.moveTo(0, i);
             ctx.lineTo(canvas.width, i);
             ctx.stroke();
+           
         }
-        for (let i = 0; i < canvas.width; i += pixelWidthIncrements * 10) {
+        ctx.fillText(`${settings.gridMultiplier}`,pixelWidthIncrements * settings.gridMultiplier - 15,pixelHeightIncrements * settings.gridMultiplier / 2);
+        
+        // Columns
+        for (let i = 0; i < canvas.width; i += pixelWidthIncrements * settings.gridMultiplier) {
             ctx.beginPath();
             ctx.moveTo(i, 0);
             ctx.lineTo(i, canvas.height);
             ctx.stroke();
         }
+        ctx.fillText(`${settings.gridMultiplier}`,pixelWidthIncrements * settings.gridMultiplier / 2,pixelHeightIncrements * settings.gridMultiplier - 1);
     }
 
     function drawScale() {
@@ -200,7 +209,7 @@
         // ctx.moveTo(0, 10);
         // ctx.lineTo(canvas.width, 10);
         // ctx.stroke();
-        ctx.fillText(`${settings.scale}m`, canvas.width / 2, 15);
+        ctx.fillText(`${settings.scale}`, canvas.width / 2, 15);
     }
 
     function setValuesForIndex(index) {
