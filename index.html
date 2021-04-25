@@ -4,9 +4,15 @@
     <meta charset="UTF-8">
     <title>Measure</title>
     <style>
+        body {
+            padding: 0;
+            margin: 0;
+        }
+
         #inputs {
             display: flex;
             flex-direction: row;
+            height: 20px;
         }
 
         canvas {
@@ -15,7 +21,11 @@
 
         #export {
             height: 50vh;
-            flex: 1;
+            position: absolute;
+            right: 0;
+            top: 20px;
+            display: none;
+            width: 50%;
         }
     </style>
 </head>
@@ -34,14 +44,10 @@
         <button type="submit">Add</button>
     </form>
     <button onclick="importRects()">Import</button>
+    <button onclick="showExport()">Show Data</button>
 </div>
-<div style="display: flex">
-
-    <canvas id="canvas" width="1000" height="1000"></canvas>
-    
-    <textarea id="export"></textarea>
-    
-</div>
+<canvas id="canvas" width="1000" height="1000"></canvas>
+<textarea id="export"></textarea>
 <button onclick="exportImage()">Export Image</button>
 <img id="png"/>
 <script>
@@ -52,7 +58,6 @@
         gridMultiplier: 10,
         ...JSON.parse(localStorage.getItem('settings') || '{}')
     }
-    const rects = settings.rects;
     document.getElementById('scale').value = settings.scale;
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
@@ -67,9 +72,25 @@
 
     draw();
 
+    const resizeCanvas = () => {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        canvas.width = w;
+        canvas.height = h;
+        draw();
+    };
+
+    window.onresize = resizeCanvas;
+
+    window.onload = resizeCanvas;
+
     function exportImage() {
         const img = canvas.toDataURL('image/png');
-        document.getElementById('png').src=img;
+        document.getElementById('png').src = img;
+    }
+
+    function showExport() {
+        document.getElementById('export').style.display = document.getElementById('export').style.display === 'block' ? 'none' : 'block';
     }
 
     function exportRects() {
@@ -102,7 +123,7 @@
 
         console.log('Offset by', diff);
         if (diff) {
-            rects.forEach((rect) => {
+            settings.rects.forEach((rect) => {
                 rect.x = rect.x + (+rect.x * diff / +e.target.value);
                 rect.y = rect.y + (+rect.y * diff / +e.target.value);
             })
@@ -120,14 +141,15 @@
         const name = document.getElementById('name').value;
 
         if (id === '-1') {
-            rects.push({
+            settings.rects.push({
                 w, h, color: randomColor(), x: 0, y: 0, name
             });
             updateIds();
         } else {
-            rects[id] = {
+            settings.rects[id] = {
+                ...settings.rects[id],
                 w, h, name,
-                ...rects[id]
+
             }
         }
 
@@ -143,7 +165,7 @@
         option.text = 'New';
         option.value = '-1';
         select.add(option)
-        rects.forEach((_, i) => {
+        settings.rects.forEach((_, i) => {
             const option = document.createElement("option");
             option.text = `${i}`;
             option.value = `${i}`;
@@ -157,7 +179,7 @@
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         drawScale()
         drawGrid()
-        rects.forEach(box => {
+        settings.rects.forEach(box => {
             const scaledWidth = +box.w / settings.scale * canvasWidth;
             const scaledHeight = +box.h / settings.scale * canvasWidth;
             ctx.strokeStyle = box.color;
@@ -194,10 +216,10 @@
             ctx.moveTo(0, i);
             ctx.lineTo(canvas.width, i);
             ctx.stroke();
-           
+
         }
-        ctx.fillText(`${settings.gridMultiplier}`,pixelWidthIncrements * settings.gridMultiplier - 15,pixelHeightIncrements * settings.gridMultiplier / 2);
-        
+        ctx.fillText(`${settings.gridMultiplier}`, pixelWidthIncrements * settings.gridMultiplier - 15, pixelHeightIncrements * settings.gridMultiplier / 2);
+
         // Columns
         for (let i = 0; i < canvas.width; i += pixelWidthIncrements * settings.gridMultiplier) {
             ctx.beginPath();
@@ -205,7 +227,7 @@
             ctx.lineTo(i, canvas.height);
             ctx.stroke();
         }
-        ctx.fillText(`${settings.gridMultiplier}`,pixelWidthIncrements * settings.gridMultiplier / 2,pixelHeightIncrements * settings.gridMultiplier - 1);
+        ctx.fillText(`${settings.gridMultiplier}`, pixelWidthIncrements * settings.gridMultiplier / 2, pixelHeightIncrements * settings.gridMultiplier - 1);
     }
 
     function drawScale() {
@@ -220,7 +242,7 @@
     }
 
     function setValuesForIndex(index) {
-        let rect = rects[index];
+        let rect = settings.rects[index];
 
         document.getElementById('id').value = `${index}`;
         document.getElementById('w').value = rect.w;
@@ -238,7 +260,7 @@
         var my = parseInt(e.clientY - offsetY);
 
 
-        const rect = rects.find(r => (mx > r.x && mx < r.x + r.width && my > r.y && my < r.y + r.height));
+        const rect = settings.rects.find(r => (mx > r.x && mx < r.x + r.width && my > r.y && my < r.y + r.height));
         // rects.splice(rectIndex, 1);
         const temp = rect.w;
         rect.w = rect.h;
@@ -260,13 +282,15 @@
 
         // test each rect to see if mouse is inside
 
-        const reverseRects = [...rects];
+        const reverseRects = [...settings.rects];
         reverseRects.reverse();
         const findMethod = r => (mx > r.x && mx < r.x + r.width && my > r.y && my < r.y + r.height);
+        const rect = reverseRects.find(findMethod);
+
         if (indexOnly) {
-            return reverseRects.findIndex(findMethod);
+            return settings.rects.indexOf(rect);
         }
-        return reverseRects.find(findMethod);
+        return rect;
     }
 
     function myClick(e) {
@@ -308,8 +332,8 @@
 
         // clear all the dragging flags
         dragok = false;
-        for (var i = 0; i < rects.length; i++) {
-            rects[i].isDragging = false;
+        for (var i = 0; i < settings.length; i++) {
+            settings.rects[i].isDragging = false;
         }
     }
 
@@ -338,8 +362,8 @@
             // move each rect that isDragging
             // by the distance the mouse has moved
             // since the last mousemove
-            for (var i = 0; i < rects.length; i++) {
-                var r = rects[i];
+            for (var i = 0; i < settings.rects.length; i++) {
+                var r = settings.rects[i];
                 if (r.isDragging) {
                     r.x += dx;
                     r.y += dy;
