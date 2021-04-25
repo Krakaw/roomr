@@ -76,7 +76,7 @@
     canvas.onmouseup = myUp;
     canvas.onmousemove = myMove;
 
-
+    updateIds();
     draw();
 
     const resizeCanvas = () => {
@@ -177,9 +177,9 @@
         option.text = 'New';
         option.value = '-1';
         select.add(option)
-        settings.rects.forEach((_, i) => {
+        settings.rects.forEach((rect, i) => {
             const option = document.createElement("option");
-            option.text = `${i}`;
+            option.text = `${rect.name}`;
             option.value = `${i}`;
             select.add(option)
         })
