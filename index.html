@@ -56,6 +56,7 @@
     const viewWidth = 1000;
     const viewHeight = 1000;
     let moveView = false;
+    let startX = 0, startY = 0;
 
     const settings = {
         scale: 100, //meters
@@ -115,7 +116,7 @@
     }
 
     function zoom(modifier) {
-        const value = settings.scale + (10 * modifier);
+        const value = settings.scale + (settings.gridMultiplier * modifier);
         changeScale({target: {value}})
         document.getElementById('scale').value = value
     }
@@ -376,22 +377,23 @@
             // since the last mousemove
             var dx = mx - startX;
             var dy = my - startY;
-
-            if (moveView) {
+            if (moveView || e.altKey) {
                 settings.viewOffsetX += dx;
                 settings.viewOffsetY += dy;
-            }
-
-            // move each rect that isDragging
-            // by the distance the mouse has moved
-            // since the last mousemove
-            for (var i = 0; i < settings.rects.length; i++) {
-                var r = settings.rects[i];
-                if (r.isDragging) {
-                    r.x += dx;
-                    r.y += dy;
+            } else {
+                // move each rect that isDragging
+                // by the distance the mouse has moved
+                // since the last mousemove
+                for (var i = 0; i < settings.rects.length; i++) {
+                    var r = settings.rects[i];
+                    if (r.isDragging) {
+                        r.x += dx;
+                        r.y += dy;
+                    }
                 }
             }
+
+
 
             // redraw the scene with the new rect positions
             draw();
