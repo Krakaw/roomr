@@ -39,9 +39,9 @@
         <select id="id">
             <option value="-1">New</option>
         </select>
-        <input id="w" type="number" step="any" value="50" placeholder="Width">
-        <input id="h" type="number" step="any" value="50" placeholder="Height">
-        <input id="name" type="text" value="Test" placeholder="Name">
+        <input id="w" type="number" step="any" value="0" placeholder="Width">
+        <input id="h" type="number" step="any" value="0" placeholder="Height">
+        <input id="name" type="text" value="" placeholder="Name">
         <button type="submit">Add</button>
     </form>
     <button onclick="importRects()">Import</button>
@@ -52,23 +52,25 @@
 <button onclick="exportImage()">Export Image</button>
 <img id="png"/>
 <script>
-    let dragok = false;
-    const viewWidth = 1000;
-    const viewHeight = 1000;
+    let dragOk = false;
     let moveView = false;
-    let startX = 0, startY = 0;
+    let startX = 0;
+    let startY = 0;
+
+    const viewHeight = viewWidth = 1000;
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
 
     const settings = {
-        scale: 100, //meters
+        scale: 100, // units
         rects: [],
-        gridMultiplier: 10,
+        gridMultiplier: 10, // units
         viewOffsetX: 0,
         viewOffsetY: 0,
         ...JSON.parse(localStorage.getItem('settings') || '{}')
     }
     document.getElementById('scale').value = settings.scale;
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+
     ctx.font = "15px Helvetica";
     // listen for mouse events
     canvas.ondblclick = dblClick;
@@ -76,6 +78,9 @@
     canvas.onmousedown = myDown;
     canvas.onmouseup = myUp;
     canvas.onmousemove = myMove;
+
+    window.onresize = resizeCanvas;
+    window.onload = resizeCanvas;
 
     updateIds();
     draw();
@@ -87,9 +92,6 @@
         canvas.height = h;
         draw();
     };
-
-    window.onresize = resizeCanvas;
-    window.onload = resizeCanvas;
 
     function exportImage() {
         const img = canvas.toDataURL('image/png');
@@ -123,7 +125,7 @@
 
     function center() {
         settings.viewOffsetY = 0;
-        settings.viewOffsetX=0;
+        settings.viewOffsetX = 0;
         draw();
     }
 
@@ -193,16 +195,16 @@
         drawScale()
         drawGrid()
         settings.rects.forEach(box => {
-            const scaledWidth = +box.w / settings.scale * viewWidth ;
+            const scaledWidth = +box.w / settings.scale * viewWidth;
             const scaledHeight = +box.h / settings.scale * viewHeight;
             ctx.strokeStyle = box.color;
             box.width = scaledWidth;
             box.height = scaledHeight;
             ctx.globalAlpha = 1;
             ctx.fillStyle = "black";
-            ctx.fillText(`${box.name}`, settings.viewOffsetX + box.x + 5, settings.viewOffsetY +box.y + 15);
+            ctx.fillText(`${box.name}`, settings.viewOffsetX + box.x + 5, settings.viewOffsetY + box.y + 15);
             ctx.fillText(`${box.w}`, settings.viewOffsetX + box.x + (box.width / 2), settings.viewOffsetY + box.y + (box.height - 15));
-            ctx.fillText(`${box.h}`, settings.viewOffsetX + box.x + (box.width - 55),settings.viewOffsetY +  box.y + (box.height / 2));
+            ctx.fillText(`${box.h}`, settings.viewOffsetX + box.x + (box.width - 55), settings.viewOffsetY + box.y + (box.height / 2));
             ctx.globalAlpha = 0.5;
             ctx.fillStyle = box.color;
             ctx.fillRect(box.x + settings.viewOffsetX, box.y + settings.viewOffsetY, scaledWidth, scaledHeight);
@@ -232,19 +234,19 @@
         ctx.stroke();
         ctx.globalAlpha = 0.5;
         // Rows
-        for (let i = 0 ; i < canvas.height; i += pixelHeightIncrements * settings.gridMultiplier) {
+        for (let i = 0; i < canvas.height; i += pixelHeightIncrements * settings.gridMultiplier) {
             ctx.beginPath();
-            ctx.moveTo(0, i );
-            ctx.lineTo(canvas.width, i );
+            ctx.moveTo(0, i);
+            ctx.lineTo(canvas.width, i);
             ctx.stroke();
 
         }
 
         // Columns
-        for (let i = 0 ; i < canvas.width ; i += pixelWidthIncrements * settings.gridMultiplier) {
+        for (let i = 0; i < canvas.width; i += pixelWidthIncrements * settings.gridMultiplier) {
             ctx.beginPath();
             ctx.moveTo(i, 0);
-            ctx.lineTo(i , canvas.height);
+            ctx.lineTo(i, canvas.height);
             ctx.stroke();
         }
         ctx.fillText(`${settings.gridMultiplier}`, settings.viewOffsetX + 1, settings.viewOffsetY + 10);
@@ -331,10 +333,10 @@
         var mx = parseInt(e.clientX - offsetX);
         var my = parseInt(e.clientY - offsetY);
         const rect = findClickedBox(e)
-        dragok = false;
+        dragOk = false;
         moveView = !rect;
         if (rect) {
-            dragok = true;
+            dragOk = true;
             rect.isDragging = true;
         }
 
@@ -351,7 +353,7 @@
         e.stopPropagation();
 
         // clear all the dragging flags
-        dragok = false;
+        dragOk = false;
         moveView = false;
         settings.rects.forEach(rect => rect.isDragging = false);
     }
@@ -363,7 +365,7 @@
         var BB = canvas.getBoundingClientRect();
         var offsetX = BB.left;
         var offsetY = BB.top;
-        if (dragok || moveView) {
+        if (dragOk || moveView) {
 
             // tell the browser we're handling this mouse event
             e.preventDefault();
@@ -392,7 +394,6 @@
                     }
                 }
             }
-
 
 
             // redraw the scene with the new rect positions
