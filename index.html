@@ -31,6 +31,7 @@
 </head>
 <body>
 <div id="inputs">
+    <button onclick="center()">Center</button>
     <button onclick="zoom(-1)">-</button>
     <input placeholder="Scale" onchange="changeScale(event)" id="scale"/>
     <button onclick="zoom(1)">+</button>
@@ -52,10 +53,16 @@
 <img id="png"/>
 <script>
     let dragok = false;
+    const viewWidth = 1000;
+    const viewHeight = 1000;
+    let moveView = false;
+
     const settings = {
-        scale: 1500, //meters
+        scale: 100, //meters
         rects: [],
         gridMultiplier: 10,
+        viewOffsetX: 0,
+        viewOffsetY: 0,
         ...JSON.parse(localStorage.getItem('settings') || '{}')
     }
     document.getElementById('scale').value = settings.scale;
@@ -81,7 +88,6 @@
     };
 
     window.onresize = resizeCanvas;
-
     window.onload = resizeCanvas;
 
     function exportImage() {
@@ -112,6 +118,12 @@
         const value = settings.scale + (10 * modifier);
         changeScale({target: {value}})
         document.getElementById('scale').value = value
+    }
+
+    function center() {
+        settings.viewOffsetY = 0;
+        settings.viewOffsetX=0;
+        draw();
     }
 
     function randomColor() {
@@ -180,24 +192,24 @@
         drawScale()
         drawGrid()
         settings.rects.forEach(box => {
-            const scaledWidth = +box.w / settings.scale * canvasWidth;
-            const scaledHeight = +box.h / settings.scale * canvasWidth;
+            const scaledWidth = +box.w / settings.scale * viewWidth ;
+            const scaledHeight = +box.h / settings.scale * viewHeight;
             ctx.strokeStyle = box.color;
             box.width = scaledWidth;
             box.height = scaledHeight;
             ctx.globalAlpha = 1;
             ctx.fillStyle = "black";
-            ctx.fillText(`${box.name}`, box.x + 5, box.y + 15);
-            ctx.fillText(`${box.w}`, box.x + (box.width / 2), box.y + (box.height - 15));
-            ctx.fillText(`${box.h}`, box.x + (box.width - 55), box.y + (box.height / 2));
+            ctx.fillText(`${box.name}`, settings.viewOffsetX + box.x + 5, settings.viewOffsetY +box.y + 15);
+            ctx.fillText(`${box.w}`, settings.viewOffsetX + box.x + (box.width / 2), settings.viewOffsetY + box.y + (box.height - 15));
+            ctx.fillText(`${box.h}`, settings.viewOffsetX + box.x + (box.width - 55),settings.viewOffsetY +  box.y + (box.height / 2));
             ctx.globalAlpha = 0.5;
             ctx.fillStyle = box.color;
-            ctx.fillRect(box.x, box.y, scaledWidth, scaledHeight);
+            ctx.fillRect(box.x + settings.viewOffsetX, box.y + settings.viewOffsetY, scaledWidth, scaledHeight);
             if (box.isDragging) {
                 ctx.globalAlpha = 1;
                 ctx.strokeStyle = '#000000';
                 ctx.beginPath();
-                ctx.rect(box.x, box.y, scaledWidth, scaledHeight);
+                ctx.rect(box.x + settings.viewOffsetX, box.y + settings.viewOffsetY, scaledWidth, scaledHeight);
                 ctx.stroke();
             }
         })
@@ -205,29 +217,36 @@
     }
 
     function drawGrid() {
-        const pixelHeightIncrements = canvas.height / settings.scale;
-        const pixelWidthIncrements = canvas.width / settings.scale;
-        ctx.globalAlpha = 0.5;
+        const pixelHeightIncrements = viewWidth / settings.scale;
+        const pixelWidthIncrements = viewHeight / settings.scale;
         ctx.strokeStyle = '#000000';
         ctx.fillStyle = '#000000';
+        // Draw 0 point
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.moveTo(settings.viewOffsetX, settings.viewOffsetY);
+        ctx.lineTo(settings.viewOffsetX, settings.viewOffsetY + (pixelHeightIncrements * settings.gridMultiplier));
+        ctx.moveTo(settings.viewOffsetX, settings.viewOffsetY);
+        ctx.lineTo(settings.viewOffsetX + (pixelWidthIncrements * settings.gridMultiplier), settings.viewOffsetY);
+        ctx.stroke();
+        ctx.globalAlpha = 0.5;
         // Rows
-        for (let i = 0; i < canvas.height; i += pixelHeightIncrements * settings.gridMultiplier) {
+        for (let i = 0 ; i < canvas.height; i += pixelHeightIncrements * settings.gridMultiplier) {
             ctx.beginPath();
-            ctx.moveTo(0, i);
-            ctx.lineTo(canvas.width, i);
+            ctx.moveTo(0, i );
+            ctx.lineTo(canvas.width, i );
             ctx.stroke();
 
         }
-        ctx.fillText(`${settings.gridMultiplier}`, pixelWidthIncrements * settings.gridMultiplier - 15, pixelHeightIncrements * settings.gridMultiplier / 2);
 
         // Columns
-        for (let i = 0; i < canvas.width; i += pixelWidthIncrements * settings.gridMultiplier) {
+        for (let i = 0 ; i < canvas.width ; i += pixelWidthIncrements * settings.gridMultiplier) {
             ctx.beginPath();
             ctx.moveTo(i, 0);
-            ctx.lineTo(i, canvas.height);
+            ctx.lineTo(i , canvas.height);
             ctx.stroke();
         }
-        ctx.fillText(`${settings.gridMultiplier}`, pixelWidthIncrements * settings.gridMultiplier / 2, pixelHeightIncrements * settings.gridMultiplier - 1);
+        ctx.fillText(`${settings.gridMultiplier}`, settings.viewOffsetX + 1, settings.viewOffsetY + 10);
     }
 
     function drawScale() {
@@ -277,8 +296,8 @@
         e.stopPropagation();
 
         // get the current mouse position
-        const mx = parseInt(e.clientX - offsetX);
-        const my = parseInt(e.clientY - offsetY);
+        const mx = parseInt(e.clientX) - offsetX - settings.viewOffsetX;
+        const my = parseInt(e.clientY) - offsetY - settings.viewOffsetY;
 
         // test each rect to see if mouse is inside
 
@@ -312,10 +331,10 @@
         var my = parseInt(e.clientY - offsetY);
         const rect = findClickedBox(e)
         dragok = false;
+        moveView = !rect;
         if (rect) {
             dragok = true;
             rect.isDragging = true;
-
         }
 
         // save the current mouse position
@@ -332,9 +351,8 @@
 
         // clear all the dragging flags
         dragok = false;
-        for (var i = 0; i < settings.length; i++) {
-            settings.rects[i].isDragging = false;
-        }
+        moveView = false;
+        settings.rects.forEach(rect => rect.isDragging = false);
     }
 
 
@@ -344,7 +362,7 @@
         var BB = canvas.getBoundingClientRect();
         var offsetX = BB.left;
         var offsetY = BB.top;
-        if (dragok) {
+        if (dragok || moveView) {
 
             // tell the browser we're handling this mouse event
             e.preventDefault();
@@ -358,6 +376,11 @@
             // since the last mousemove
             var dx = mx - startX;
             var dy = my - startY;
+
+            if (moveView) {
+                settings.viewOffsetX += dx;
+                settings.viewOffsetY += dy;
+            }
 
             // move each rect that isDragging
             // by the distance the mouse has moved
