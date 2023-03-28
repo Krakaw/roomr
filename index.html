@@ -46,6 +46,7 @@
     </form>
     <button onclick="importRects()">Import</button>
     <button onclick="showExport()">Show Data</button>
+    <button onclick="changeMode()" id="btnChangeMode">Mode: move</button>
 </div>
 <canvas id="canvas" width="1000" height="1000"></canvas>
 <textarea id="export"></textarea>
@@ -56,10 +57,13 @@
     let moveView = false;
     let startX = 0;
     let startY = 0;
+    let mode = 'move'; // move, resize, create
 
     const viewHeight = viewWidth = 1000;
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+
+
 
     const settings = {
         scale: 100, // units
@@ -93,6 +97,15 @@
         draw();
     };
 
+    function changeMode() {
+        // Toggle between move, resize and create in order
+        const modes = ['move', 'resize', 'create'];
+        const index = modes.indexOf(mode);
+        const nextIndex = index === modes.length - 1 ? 0 : index + 1;
+        mode = modes[nextIndex];
+        document.getElementById('btnChangeMode').innerText = `Mode: ${mode}`;
+
+    }
     function exportImage() {
         const img = canvas.toDataURL('image/png');
         document.getElementById('png').src = img;
@@ -332,17 +345,43 @@
         const offsetY = BB.top;
         var mx = parseInt(e.clientX - offsetX);
         var my = parseInt(e.clientY - offsetY);
-        const rect = findClickedBox(e)
-        dragOk = false;
-        moveView = !rect;
-        if (rect) {
+        if (mode === 'move') {
+            const rect = findClickedBox(e)
+            dragOk = false;
+            moveView = !rect;
+            if (rect) {
+                dragOk = true;
+                rect.isDragging = true;
+            }
+
+            // save the current mouse position
+            startX = mx;
+            startY = my;
+        } else if (mode === 'create') {
+            const rect = {
+                x: mx,
+                y: my,
+                w: 0,
+                h: 0,
+                name: '',
+                isDragging: false,
+                width: 0,
+                height: 0,
+                get width() {
+                    return this.w ;
+                },
+                get height() {
+                    return this.h ;
+                }
+            };
+            settings.rects.push(rect);
             dragOk = true;
             rect.isDragging = true;
+            // save the current mouse position
+            startX = mx;
+            startY = my;
         }
 
-        // save the current mouse position
-        startX = mx;
-        startY = my;
     }
 
 
@@ -353,9 +392,15 @@
         e.stopPropagation();
 
         // clear all the dragging flags
-        dragOk = false;
-        moveView = false;
-        settings.rects.forEach(rect => rect.isDragging = false);
+        if (mode === 'move') {
+            dragOk = false;
+            moveView = false;
+            settings.rects.forEach(rect => rect.isDragging = false);
+        } else if (mode === 'create') {
+            dragOk = false;
+            settings.rects.forEach(rect => rect.isDragging = false);
+        }
+
     }
 
 
@@ -375,11 +420,18 @@
             var mx = parseInt(e.clientX - offsetX);
             var my = parseInt(e.clientY - offsetY);
 
+
             // calculate the distance the mouse has moved
             // since the last mousemove
             var dx = mx - startX;
             var dy = my - startY;
-            if (moveView || e.altKey) {
+            if (mode === 'create') {
+                const rect = settings.rects.find(r => r.isDragging);
+                rect.width = mx;
+                rect.height = my;
+                rect.w = mx / settings.scale;
+                rect.h = my / settings.scale;
+            } else if (moveView || e.altKey) {
                 settings.viewOffsetX += dx;
                 settings.viewOffsetY += dy;
             } else {
@@ -399,9 +451,12 @@
             // redraw the scene with the new rect positions
             draw();
 
-            // reset the starting mouse position for the next mousemove
-            startX = mx;
-            startY = my;
+            if (mode !== 'create') {
+                // reset the starting mouse position for the next mousemove
+                startX = mx;
+                startY = my;
+            }
+
 
         }
     }

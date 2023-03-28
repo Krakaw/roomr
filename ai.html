@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Canvas Demo</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        #canvas {
+            border: 1px solid #000;
+            width: 1080px;
+            height: 1080px;
+        }
+        #bg-image-input {
+            display: block;
+        }
+        #block-name-input {
+            display: block;
+        }
+        #block-color-input {
+            display: block;
+        }
+        #save-image-button {
+            display: block;
+        }
+        #export-data-button {
+            display: block;
+        }
+        #import-data-button {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+<h1>Canvas Demo</h1>
+</div>
+<label for="bg-image-input">Background Image:</label>
+<input type="file" id="bg-image-input">
+
+
+
+<label for="block-name-input">Block Name:</label>
+<input type="text" id="block-name-input">
+<label for="block-color-input">Block Color:</label>
+<input type="color" id="block-color-input">
+
+<button id="save-image-button">Save Image</button>
+<button id="export-data-button">Export Data</button>
+<button id="import-data-button">Import Data</button>
+<div>
+<canvas id="canvas"></canvas>
+<script>
+    let canvas = document.getElementById("canvas");
+    let ctx = canvas.getContext("2d");
+
+    let bgImage = null;
+    let scaleLine = null;
+    let blocks = [];
+
+    let isMouseDown = false;
+    let selectedBlock = null;
+    let selectedHandle = null;
+
+    function loadImage(file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                bgImage = img;
+                canvas.width = img.width;
+                canvas.height = img.height;
+                draw();
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function draw() {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw background image
+        if (bgImage) {
+            ctx.drawImage(bgImage, 0, 0);
+        }
+
+        // Draw scale line
+        if (scaleLine) {
+            ctx.beginPath();
+            ctx.strokeStyle = "blue";
+            ctx.lineWidth = 1;
+            ctx.moveTo(scaleLine.x1, scaleLine.y1);
+            ctx.lineTo(scaleLine.x2, scaleLine.y2);
+
+            ctx.stroke();
+
+            // Draw handles
+            ctx.fillRect(scaleLine.x1 - 2, scaleLine.y1 - 2, 4, 4);
+            ctx.fillRect(scaleLine.x2 - 2, scaleLine.y2 - 2, 4, 4);
+        }
+
+        // Draw blocks
+        blocks.forEach((block) => {
+            const x = block.x - block.width / 2;
+            const y = block.y - block.height / 2;
+            ctx.fillStyle = block.color;
+            ctx.fillRect(x, y, block.width, block.height);
+
+            // Draw label
+            ctx.font = "12px sans-serif";
+            ctx.textBaseline = "top";
+            ctx.fillStyle = "#000";
+            ctx.fillText(block.name, x + 5, y + 5);
+        });
+    }
+
+    function getCursorPosition(event) {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        return { x, y };
+    }
+
+    function getBlockAtPosition(x, y) {
+        // Iterate backwards through blocks to find topmost one
+        for (let i = blocks.length - 1; i >= 0; i--) {
+            const block = blocks[i];
+            const x1 = block.x - block.width / 2;
+            const x2 = block.x + block.width / 2;
+            const y1 = block.y - block.height / 2;
+            const y2 = block.y + block.height / 2;
+            if (x >= x1 && x <= x2 && y >=y1 && y <= y2) {
+                return block;
+            }
+        }
+        return null;
+    }
+    function getHandleAtPosition(x, y) {
+        if (!scaleLine) {
+            return null;
+        }
+
+        const handle1 = { x: scaleLine.x1, y: scaleLine.y1 };
+        const handle2 = { x: scaleLine.x2, y: scaleLine.y2 };
+
+        if (distance(x, y, handle1.x, handle1.y) <= 5) {
+            return handle1;
+        } else if (distance(x, y, handle2.x, handle2.y) <= 5) {
+            return handle2;
+        } else {
+            return null;
+        }
+    }
+
+    function distance(x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function handleMouseDown(event) {
+        isMouseDown = true;
+
+        const cursor = getCursorPosition(event);
+        const block = getBlockAtPosition(cursor.x, cursor.y);
+        if (block) {
+            // Select block
+            selectedBlock = block;
+
+            // Calculate offset from center of block to cursor
+            const offsetX = cursor.x - block.x;
+            const offsetY = cursor.y - block.y;
+            selectedBlock.offsetX = offsetX;
+            selectedBlock.offsetY = offsetY;
+
+            // Unselect handle
+            selectedHandle = null;
+        } else {
+            // Select handle
+            const handle = getHandleAtPosition(cursor.x, cursor.y);
+            if (handle) {
+                selectedHandle = handle;
+            }
+        }
+    }
+
+    function handleMouseMove(event) {
+        if (!isMouseDown) {
+            return;
+        }
+
+        const cursor = getCursorPosition(event);
+
+        if (selectedBlock) {
+            // Move block
+            selectedBlock.x = cursor.x - selectedBlock.offsetX;
+            selectedBlock.y = cursor.y - selectedBlock.offsetY;
+        } else if (selectedHandle) {
+            // Move handle
+            selectedHandle.x = cursor.x;
+            selectedHandle.y = cursor.y;
+
+            // Update scale line
+            const dx = scaleLine.x2 - scaleLine.x1;
+            const dy = scaleLine.y2 - scaleLine.y1;
+            const length = distance(scaleLine.x1, scaleLine.y1, scaleLine.x2, scaleLine.y2);
+            const scale = length / dx;
+            const offsetX = selectedHandle.x - scaleLine.x1;
+            const offsetY = selectedHandle.y - scaleLine.y1;
+            const newLength = distance(scaleLine.x1, scaleLine.y1, selectedHandle.x, selectedHandle.y);
+            const newDx = newLength / scale;
+            const newDy = newDx * (dy / dx);
+            scaleLine.x2 = scaleLine.x1 + newDx;
+            scaleLine.y2 = scaleLine.y1 + newDy;
+        }
+
+        draw();
+    }
+
+    function handleMouseUp(event) {
+        isMouseDown = false;
+        selectedBlock = null;
+        selectedHandle = null;
+    }
+
+    function handleBgImageChange(event) {
+        const file = event.target.files[0];
+        if (file) {
+            loadImage(file);
+        }
+    }
+
+    function handleCanvasClick(event) {
+        if (!scaleLine) {
+            // Add scale line
+            const cursor = getCursorPosition(event);
+            scaleLine = {
+                x1: cursor.x,
+                y1: cursor.y,
+                x2: cursor.x + 10,
+                y2: cursor.y
+            };
+
+            draw();
+            return;
+        }
+        if (scaleLine && !selectedBlock && !selectedHandle) {
+            // Add block
+            const cursor = getCursorPosition(event);
+            const dx = scaleLine.x2 - scaleLine.x1;
+            const dy = scaleLine.y2 - scaleLine.y1;
+            const length = distance(scaleLine.x1, scaleLine.y1, scaleLine.x2, scaleLine.y2);
+            const scale = length / dx;
+            const width = prompt('Enter block width (in cm):');
+            const height = prompt('Enter block height (in cm):');
+            const name = prompt('Enter block name:');
+            const color = prompt('Enter block color:');
+            const block = {
+                x: cursor.x,
+                y: cursor.y,
+                width: width * scale,
+                height: height * scale,
+                name: name,
+                color: color
+            };
+            blocks.push(block);
+
+            draw();
+        }
+    }
+
+    function handleExportClick() {
+        const data = {
+            bgImageUrl: bgImageUrl,
+            scaleLine: scaleLine,
+            blocks: blocks
+        };
+        const json = JSON.stringify(data);
+        const filename = 'canvas-data.json';
+
+        const link = document.createElement('a');
+        link.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(json));
+        link.setAttribute('download', filename);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function handleImportClick() {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.addEventListener('change', () => {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.addEventListener('load', () => {
+                    const json = reader.result;
+                    const data = JSON.parse(json);
+                    bgImageUrl = data.bgImageUrl;
+                    scaleLine = data.scaleLine;
+                    blocks = data.blocks;
+                    draw();
+                });
+                reader.readAsText(file);
+            }
+        });
+        input.click();
+    }
+
+    function init() {
+        canvas = document.getElementById('canvas');
+        ctx = canvas.getContext('2d');
+
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('click', handleCanvasClick);
+
+        const bgImageInput = document.getElementById('bg-image-input');
+        bgImageInput.addEventListener('change', handleBgImageChange);
+
+        const exportButton = document.getElementById('export-data-button');
+        exportButton.addEventListener('click', handleExportClick);
+
+        const importButton = document.getElementById('import-data-button');
+        importButton.addEventListener('click', handleImportClick);
+
+        draw();
+    }
+
+    init();
+
+</script>
+</body>
+</html>
+
