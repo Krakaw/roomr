@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+canvas {
+  background-color: white;
+}
+
+.size-input input {
+/*  No margins no borders very small and embedded */
+    margin: 0;
+    border: 0;
+    width: 1em;
+    height: 1em;
+    font-size: 1em;
+    padding: 0;
+/*  Remove the number spinner decorations */
+    -moz-appearance: textfield;
+    appearance: textfield;
+/*  Change the placeholder color with black */
+    color: black;
+  margin-right: 10px;
+}
